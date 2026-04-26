@@ -538,7 +538,9 @@ class TestDjangoRedisCache:
         assert mock.called
 
     def test_close_accepts_signal_kwargs(
-        self, cache: RedisCache, mocker: MockerFixture,
+        self,
+        cache: RedisCache,
+        mocker: MockerFixture,
     ):
         # Regression test for jazzband/django-redis#787:
         # Django's request_finished signal calls cache.close() with
