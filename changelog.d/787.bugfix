@@ -1,0 +1,4 @@
+Fix ``TypeError: close() got an unexpected keyword argument 'signal'``
+raised on every request when Django's ``request_finished`` signal calls
+``RedisCache.close()``. The cache backend no longer forwards keyword
+arguments to the underlying client's ``close()``.

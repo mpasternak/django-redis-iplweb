@@ -537,6 +537,18 @@ class TestDjangoRedisCache:
         cache.close()
         assert mock.called
 
+    def test_close_accepts_signal_kwargs(
+        self, cache: RedisCache, mocker: MockerFixture,
+    ):
+        # Regression test for jazzband/django-redis#787:
+        # Django's request_finished signal calls cache.close() with
+        # signal= and sender= kwargs. RedisCache.close() must accept
+        # them but must NOT forward them to the underlying client,
+        # because DefaultClient.close() takes no keyword arguments.
+        mock = mocker.patch.object(cache.client, "close")
+        cache.close(signal=mocker.Mock(), sender=mocker.Mock())
+        mock.assert_called_once_with()
+
     def test_ttl(self, cache: RedisCache):
         cache.set("foo", "bar", 10)
         ttl = cache.ttl("foo")

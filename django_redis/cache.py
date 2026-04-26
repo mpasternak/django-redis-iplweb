@@ -185,7 +185,11 @@ class RedisCache(BaseCache):
 
     @omit_exception
     def close(self, **kwargs):
-        self.client.close(**kwargs)
+        # Accept and ignore arbitrary kwargs (e.g. signal=, sender=) that
+        # Django's request_finished signal dispatcher passes in. The
+        # underlying client's close() takes no arguments — see
+        # jazzband/django-redis#787.
+        self.client.close()
 
     @omit_exception
     def touch(self, *args, **kwargs):

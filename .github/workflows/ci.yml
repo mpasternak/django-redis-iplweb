@@ -15,42 +15,37 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - '3.10'
           - '3.11'
           - '3.12'
+          - '3.13'
+          - '3.14'
         django-version:
-          - '4.2'
-          - '5.1'
           - '5.2'
+          - '6.0'
         redis-version:
           - 'latest'
 
+        # Django 6.0 requires Python 3.12+
+        exclude:
+          - python-version: '3.11'
+            django-version: '6.0'
+
         # Only test pre-release dependencies for the latest Python.
         include:
-          # Django 4.2 and python 3.9 with latest redis
-          - django-version: '4.2'
-            redis-version: 'latest'
-            python-version: '3.9'
-          
-          # latest Django with latest redis
-          - django-version: '5.2'
-            redis-version: 'latest'
-            python-version: '3.13'
-
           # latest Django with pre-release redis
-          - django-version: '5.2'
+          - django-version: '6.0'
             redis-version: 'master'
-            python-version: '3.13'
+            python-version: '3.14'
 
           # pre-release Django with latest redis
           - django-version: 'main'
             redis-version: 'latest'
-            python-version: '3.13'
+            python-version: '3.14'
 
           # pre-release Django and pre-release redis
           - django-version: 'main'
             redis-version: 'master'
-            python-version: '3.13'
+            python-version: '3.14'
 
     steps:
       - uses: actions/checkout@v6
