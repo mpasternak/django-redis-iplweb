@@ -1,0 +1,1 @@
+Consolidate all packaging, build, test, coverage, mypy, and tox configuration into ``pyproject.toml``; remove ``setup.cfg`` and ``setup.py``. Distribution name on PyPI is now ``django-redis-iplweb`` (import package remains ``django_redis``).
