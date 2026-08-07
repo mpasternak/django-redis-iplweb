@@ -1,0 +1,3 @@
+Release workflow now publishes to PyPI with Trusted Publishing (OIDC) instead of
+the inherited jazzband upload endpoint, and refuses to publish artifacts whose
+name or version does not match the tag.
