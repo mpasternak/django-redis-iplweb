@@ -1,40 +1,156 @@
 name: Release
 
+# Publishes django-redis-iplweb to PyPI when a `v*` tag is pushed.
+#
+# Authentication is PyPI Trusted Publishing (OpenID Connect): GitHub mints a
+# short-lived, workflow-scoped credential that PyPI exchanges for an upload
+# token. There is no API token in this repository and none needs to exist.
+#
+# One-time setup on PyPI -- Manage project -> Publishing -> Add a new publisher:
+#
+#   PyPI project name: django-redis-iplweb
+#   Owner:             mpasternak
+#   Repository name:   django-redis-iplweb
+#   Workflow name:     release.yml
+#   Environment name:  pypi
+#
+# Change any of those five and PyPI refuses the upload with
+# "invalid-publisher: valid token, but no corresponding publisher".
+#
+# This fork previously shipped a release workflow inherited from
+# jazzband/django-redis; it was guarded by
+# `if: github.repository == 'jazzband/django-redis'` and so never ran here.
+
 on:
   push:
     tags:
-    - '*'
+      - "v*"
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    if: github.repository == 'jazzband/django-redis'
+    name: Build distributions
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: 3.9
+          python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Install build tooling
         run: |
-          python -m pip install -U pip
-          python -m pip install -U setuptools twine wheel
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade build twine
 
-      - name: Build package
+      # setup.cfg drives the metadata (`version = attr: django_redis.__version__`,
+      # which reads the VERSION tuple in django_redis/__init__.py) and setup.py
+      # is a bare `setup()` shim, so pypa/build's setuptools fallback backend is
+      # what actually builds this package.
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check metadata renders on PyPI
+        run: twine check dist/*
+
+      # This fork once published under the *upstream* name `django-redis`
+      # because setup.cfg still carried jazzband's `name =`. You cannot take a
+      # wrong name back off PyPI, so verify what was actually built -- name and
+      # version straight out of the wheel's METADATA -- before anything is
+      # uploaded. The version must also agree with the tag being released.
+      - name: Verify the built artifacts carry the expected name and version
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          python setup.py --version
-          python setup.py sdist --format=gztar bdist_wheel
-          twine check dist/*
+          python - <<'PY'
+          import email
+          import glob
+          import os
+          import re
+          import sys
+          import zipfile
 
-      - name: Upload packages to Jazzband
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-        uses: pypa/gh-action-pypi-publish@master
+          EXPECTED_NAME = "django-redis-iplweb"
+
+          def normalize(name):
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+          wheels = glob.glob("dist/*.whl")
+          if len(wheels) != 1:
+              sys.exit(f"::error::expected exactly one wheel in dist/, got {wheels}")
+          wheel = wheels[0]
+
+          with zipfile.ZipFile(wheel) as zf:
+              metadata_names = [
+                  n for n in zf.namelist()
+                  if n.endswith(".dist-info/METADATA")
+              ]
+              if len(metadata_names) != 1:
+                  sys.exit(f"::error::{wheel} has {len(metadata_names)} METADATA entries")
+              metadata = email.message_from_bytes(zf.read(metadata_names[0]))
+
+          name = metadata["Name"]
+          version = metadata["Version"]
+          print(f"{wheel}: Name={name} Version={version}")
+
+          if normalize(name) != EXPECTED_NAME:
+              sys.exit(
+                  f"::error::wheel declares Name={name!r}, expected {EXPECTED_NAME!r} "
+                  "-- refusing to publish under the wrong project name"
+              )
+
+          tag = os.environ["TAG"]
+          if version != tag.removeprefix("v"):
+              sys.exit(
+                  f"::error::tag {tag} does not match built version {version}"
+              )
+
+          sdists = glob.glob("dist/*.tar.gz")
+          if len(sdists) != 1:
+              sys.exit(f"::error::expected exactly one sdist in dist/, got {sdists}")
+          expected_sdist = f"{EXPECTED_NAME.replace('-', '_')}-{version}.tar.gz"
+          if os.path.basename(sdists[0]) != expected_sdist:
+              sys.exit(
+                  f"::error::sdist is {os.path.basename(sdists[0])!r}, "
+                  f"expected {expected_sdist!r}"
+              )
+
+          print(f"OK: publishing {name} {version} as {tag}")
+          PY
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v7
         with:
-          user: jazzband
-          password: ${{ secrets.JAZZBAND_RELEASE_KEY }}
-          repository_url: https://jazzband.co/projects/django-redis/upload
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    # A named environment is what the trusted publisher on PyPI is scoped to,
+    # and it gives you somewhere to hang a manual approval rule on uploads.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/django-redis-iplweb/
+
+    permissions:
+      # The whole point: this is what lets GitHub mint the OIDC token that PyPI
+      # exchanges for an upload credential. Nothing else in this workflow needs
+      # any write permission.
+      id-token: write
+
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
