@@ -22,18 +22,25 @@ jobs:
         django-version:
           - '5.2'
           - '6.0'
+          - '6.1'
         redis-version:
           - 'latest'
 
-        # Django 6.0 requires Python 3.12+
+        # Django 6.0 and 6.1 require Python 3.12+
         exclude:
           - python-version: '3.11'
             django-version: '6.0'
+          - python-version: '3.11'
+            django-version: '6.1'
 
         # Only test pre-release dependencies for the latest Python.
         include:
-          # latest Django with pre-release redis
+          # released Django versions with pre-release redis
           - django-version: '6.0'
+            redis-version: 'master'
+            python-version: '3.14'
+
+          - django-version: '6.1'
             redis-version: 'master'
             python-version: '3.14'
 
