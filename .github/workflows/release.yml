@@ -26,6 +26,18 @@ on:
     tags:
       - "v*"
 
+  # A tag pushed once fires this workflow exactly once. If a release breaks
+  # half way -- the files reach PyPI but a later step fails, say -- the tag
+  # already exists and nothing will re-trigger it; without this the only remedy
+  # is to delete the tag and push it again, which is how the sibling
+  # django-autoslug-iplweb ended up with an orphaned v1.9.10.
+  #
+  # Start it from Actions -> Release -> Run workflow with "Use workflow from"
+  # set to the TAG (v6.0.2, ...), never to master: the version is read out of
+  # the ref name, and the first step of the build job refuses a branch rather
+  # than publish a bogus version.
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -35,6 +47,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # The dispatch dialog's "Use workflow from" list offers branches as well
+      # as tags, and it defaults to master. Started from a branch,
+      # github.ref_name is "master" rather than a version, and the wheel check
+      # further down would compare the built version against a tag named
+      # "master". Stop here, and say what to do instead.
+      - name: Refuse to run from anything but a tag
+        if: github.ref_type != 'tag'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          echo "::error::Started from $REF_TYPE '$REF_NAME', but this workflow releases a tagged version."
+          echo "::error::Re-run it from Actions -> Release -> Run workflow with 'Use workflow from' set to the TAG (e.g. v6.0.2), not to a branch."
+          exit 1
+
       - uses: actions/checkout@v6
 
       - name: Set up Python
