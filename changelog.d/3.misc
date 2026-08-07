@@ -1,0 +1,4 @@
+Release workflow can now be re-run by hand (``workflow_dispatch``) against an
+existing tag, so a release that broke half way no longer has to be recovered by
+deleting and re-pushing the tag. Running it from a branch is refused, with an
+error explaining that "Use workflow from" must point at the tag.
