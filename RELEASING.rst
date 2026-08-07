@@ -7,10 +7,17 @@ The following steps are needed to prepare a release:
 2. Run ``towncrier build`` to update the ``CHANGELOG.rst`` with the
    news fragments for the release.
 3. Commit the changes for steps 1 and 2.
-4. Tag the commit with the same version as specified for VERSION in step 1.
-5. Wait for the `release action`_ to complete, which will upload the package
-   to `django-redis jazzband`_, and when it's complete you can then release
-   the package to PyPI.
+4. Tag the commit ``v<VERSION>`` -- the same version as specified for VERSION
+   in step 1, prefixed with ``v`` (for example ``v6.0.2``).
+5. Push the tag. The `release action`_ builds the sdist and wheel, verifies
+   that they declare ``django-redis-iplweb`` at the tagged version, and uploads
+   them to `django-redis-iplweb on PyPI`_.
 
-.. _release action: https://github.com/jazzband/django-redis/actions/workflows/release.yml
-.. _django-redis jazzband: https://jazzband.co/projects/django-redis
+Authentication uses `PyPI Trusted Publishing`_ (OIDC), so no API token is
+stored in this repository. PyPI is configured to trust this repository, the
+``release.yml`` workflow and the ``pypi`` environment; changing any of them
+means updating the publisher entry on PyPI as well.
+
+.. _release action: https://github.com/mpasternak/django-redis-iplweb/actions/workflows/release.yml
+.. _django-redis-iplweb on PyPI: https://pypi.org/project/django-redis-iplweb/
+.. _PyPI Trusted Publishing: https://docs.pypi.org/trusted-publishers/
